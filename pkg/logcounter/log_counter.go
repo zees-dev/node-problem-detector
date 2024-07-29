@@ -1,5 +1,5 @@
-//go:build journald
-// +build journald
+//go:build (cgo && journald) || journalctl
+// +build cgo,journald journalctl
 
 /*
 Copyright 2018 The Kubernetes Authors All rights reserved.
@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
 
 	"k8s.io/node-problem-detector/cmd/logcounter/options"
@@ -77,6 +78,9 @@ func (e *logCounter) Count() (count int, err error) {
 				err = fmt.Errorf("log channel closed unexpectedly")
 				return
 			}
+
+			klog.V(5).Infof("Received log: %v", log)
+
 			// We only want to count events up until the time at which we started.
 			// Otherwise we would run forever
 			if start.Before(log.Timestamp) {
