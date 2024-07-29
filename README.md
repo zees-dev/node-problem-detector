@@ -262,6 +262,7 @@ For example, to test [KernelMonitor](https://github.com/kubernetes/node-problem-
 - You can see more rule examples under [test/kernel_log_generator/problems](https://github.com/kubernetes/node-problem-detector/tree/master/test/kernel_log_generator/problems).
 - For [KernelMonitor](https://github.com/kubernetes/node-problem-detector/blob/master/config/kernel-monitor.json) message injection, all messages should have ```kernel: ``` prefix (also note there is a space after ```:```); or use [generator.sh](https://github.com/kubernetes/node-problem-detector/blob/master/test/kernel_log_generator/generator.sh).
 - To inject other logs into journald like systemd logs, use ```echo 'Some systemd message' | systemd-cat -t systemd```.
+- By default, the `log-counter` (required to read from linux journal) is only compiled for linux OS's - which sets `ENABLE_JOURNALD=1` to produce a dynamically linked binary (`CGO_ENABLED=1`) which uses C-bindings to read from the journal. To produce a statically linked `log-counter` binary, set `USE_JOURNALCTL=1`. With this flag set, the log-counter will instead utilize [`journalctl`](https://www.freedesktop.org/software/systemd/man/journalctl) (must be available in host OS path) to read journal entries.
 
 ## Dependency Management
 
