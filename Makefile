@@ -73,6 +73,13 @@ else ifeq ($(shell go env GOHOSTOS), windows)
 ENABLE_JOURNALD=0
 endif
 
+# USE_JOURNALCTL is a build flag to compile log-counter.
+# If set, the log-counter will build as a statically linked
+# binary (not requiring CGO) by wrapping the journalctl binary
+# to read from linux journal instead.
+# requires ENABLE_JOURNALD=1.
+USE_JOURNALCTL?=0
+
 # Set default base image to Debian 12 (Bookworm)
 BASEIMAGE:=registry.k8s.io/build-image/debian-base:bookworm-v1.0.3
 
@@ -95,14 +102,18 @@ HOST_PLATFORM_BUILD_TAGS = $(LINUX_BUILD_TAGS)
 endif
 
 ifeq ($(ENABLE_JOURNALD), 1)
-	# Enable journald build tag.
-	LINUX_BUILD_TAGS := journald $(BUILD_TAGS)
-	# Enable cgo because sdjournal needs cgo to compile. The binary will be
-	# dynamically linked if CGO_ENABLED is enabled. This is fine because fedora
-	# already has necessary dynamic library. We can not use `-extldflags "-static"`
-	# here, because go-systemd uses dlopen, and dlopen will not work properly in a
-	# statically linked application.
-	CGO_ENABLED:=1
+	# Enable journald or journalctl build tag.
+	ifeq ($(USE_JOURNALCTL), 1)
+		LINUX_BUILD_TAGS := journalctl $(BUILD_TAGS)
+	else
+		LINUX_BUILD_TAGS := journald $(BUILD_TAGS)
+		# Enable cgo because sdjournal needs cgo to compile. The binary will be
+		# dynamically linked if CGO_ENABLED is enabled. This is fine because fedora
+		# already has necessary dynamic library. We can not use `-extldflags "-static"`
+		# here, because go-systemd uses dlopen, and dlopen will not work properly in a
+		# statically linked application.
+		CGO_ENABLED:=1
+	endif
 	LOGCOUNTER=./bin/log-counter
 else
 	# Hack: Don't copy over log-counter, use a wildcard path that shouldn't match
@@ -239,7 +250,7 @@ build-binaries: $(ALL_BINARIES)
 
 build-container: clean Dockerfile
 	docker buildx create --platform $(DOCKER_PLATFORMS) --use
-	docker buildx build --platform $(DOCKER_PLATFORMS) -t $(IMAGE) --build-arg BASEIMAGE=$(BASEIMAGE) --build-arg LOGCOUNTER=$(LOGCOUNTER) .
+	docker buildx build --platform $(DOCKER_PLATFORMS) -t $(IMAGE) --build-arg BASEIMAGE=$(BASEIMAGE) --build-arg LOGCOUNTER=$(LOGCOUNTER) --build-arg USE_JOURNALCTL=$(USE_JOURNALCTL) .
 
 $(TARBALL): ./bin/node-problem-detector ./bin/log-counter ./bin/health-checker ./test/bin/problem-maker
 	tar -zcvf $(TARBALL) bin/ config/ test/e2e-install.sh test/bin/problem-maker
@@ -251,7 +262,7 @@ build-tar: $(TARBALL) $(ALL_TARBALLS)
 build: build-container build-tar
 
 docker-builder:
-	docker build -t npd-builder . --target=builder --build-arg BASEIMAGE=$(BASEIMAGE)
+	docker build -t npd-builder . --target=builder --build-arg BASEIMAGE=$(BASEIMAGE) --build-arg USE_JOURNALCTL=$(USE_JOURNALCTL)
 
 build-in-docker: clean docker-builder
 	docker run \
@@ -264,7 +275,7 @@ ifneq (,$(findstring gcr.io,$(REGISTRY)))
 	gcloud auth configure-docker
 endif
 	# Build should be cached from build-container
-	docker buildx build --push --platform $(DOCKER_PLATFORMS) -t $(IMAGE) --build-arg BASEIMAGE=$(BASEIMAGE) --build-arg LOGCOUNTER=$(LOGCOUNTER) .
+	docker buildx build --push --platform $(DOCKER_PLATFORMS) -t $(IMAGE) --build-arg BASEIMAGE=$(BASEIMAGE) --build-arg LOGCOUNTER=$(LOGCOUNTER) --build-arg USE_JOURNALCTL=$(USE_JOURNALCTL) .
 
 push-tar: build-tar
 	gsutil cp $(TARBALL) $(UPLOAD_PATH)/node-problem-detector/
