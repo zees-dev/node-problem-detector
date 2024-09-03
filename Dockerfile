@@ -25,9 +25,11 @@ FROM builder-base as builder
 LABEL maintainer="Andy Xie <andy.xning@gmail.com>"
 
 ARG TARGETARCH
+ARG USE_JOURNALCTL=0
 
 ENV GOPATH /gopath/
 ENV PATH $GOPATH/bin:$PATH
+ENV USE_JOURNALCTL=${USE_JOURNALCTL}
 
 RUN apt-get update --fix-missing && apt-get --yes install libsystemd-dev gcc-aarch64-linux-gnu
 RUN go version

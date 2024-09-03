@@ -1,5 +1,5 @@
-//go:build journald
-// +build journald
+//go:build cgo && journald
+// +build cgo,journald
 
 /*
 Copyright 2016 The Kubernetes Authors All rights reserved.
@@ -50,6 +50,7 @@ type journaldWatcher struct {
 
 // NewJournaldWatcher is the create function of journald watcher.
 func NewJournaldWatcher(cfg types.WatcherConfig) types.LogWatcher {
+	klog.Info("Using sdjournal library to watch journal logs")
 	uptime, err := util.GetUptimeDuration()
 	if err != nil {
 		klog.Fatalf("failed to get uptime: %v", err)

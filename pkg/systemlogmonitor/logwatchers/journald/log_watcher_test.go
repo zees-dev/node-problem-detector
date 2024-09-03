@@ -1,5 +1,5 @@
-//go:build journald
-// +build journald
+//go:build cgo && journald
+// +build cgo,journald
 
 /*
 Copyright 2016 The Kubernetes Authors All rights reserved.
